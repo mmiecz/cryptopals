@@ -6,3 +6,19 @@ edition = "2021"
 [dependencies]
 derive_more = { version = "1.0.0", features = ["full"]}
 thiserror = "1.0.64"
+
+[lib]
+name = "cryptopals"
+path = "src/lib.rs"
+
+[[bin]]
+name = "s1c1"
+path = "src/bin/set1/challenge1.rs"
+
+[[bin]]
+name = "s1c2"
+path = "src/bin/set1/challenge2.rs"
+
+[[bin]]
+name = "s1c3"
+path = "src/bin/set1/challenge3.rs"
