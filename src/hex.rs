@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use thiserror::Error;
 
 const BASE64_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -13,7 +14,7 @@ pub enum ConversionError {
     #[error("invalid hex string len {0}")]
     InvalidHexStringLen(usize),
 }
-fn hex_to_byte(ch: char) -> Result<u8, ConversionError> {
+fn to_nibble(ch: char) -> Result<u8, ConversionError> {
     match ch {
         '0'..='9' => Ok(ch as u8 - b'0'),
         'a'..='f' => Ok(ch as u8 - b'a' + 10),
@@ -22,8 +23,8 @@ fn hex_to_byte(ch: char) -> Result<u8, ConversionError> {
     }
 }
 
-/// Converts hex string to raw bytes
-fn hex_to_bytes(s: &str) -> Result<Vec<u8>, ConversionError> {
+/// Decodes hex string to raw bytes. It doesn't expect prefix in form of 0x or 0X
+pub fn decode(s: &str) -> Result<Vec<u8>, ConversionError> {
     if s.len() % 2 != 0 {
         return Err(ConversionError::InvalidHexStringLen(s.len()));
     }
@@ -33,7 +34,7 @@ fn hex_to_bytes(s: &str) -> Result<Vec<u8>, ConversionError> {
         .try_fold((0, 0, Vec::new()), |(pos, mut byte, mut acc), ch| {
             // is pos % 2 == 0 we begin new byte
             let nibble =
-                hex_to_byte(ch).map_err(|_| ConversionError::InvalidHexCharInString(ch, pos))?;
+                to_nibble(ch).map_err(|_| ConversionError::InvalidHexCharInString(ch, pos))?;
             if pos % 2 == 0 {
                 byte |= nibble << 4;
                 Ok((pos + 1, byte, acc))
@@ -46,13 +47,20 @@ fn hex_to_bytes(s: &str) -> Result<Vec<u8>, ConversionError> {
     Ok(bytes?.2)
 }
 
+pub fn encode(bytes: &[u8]) -> String {
+    bytes.iter().fold(String::new(), |mut output, b| {
+        let _ = write!(output, "{b:02x}");
+        output
+    })
+}
+
 /// Converts string hex number to base64 string, returns Conversion error when input is malformed
-pub fn hex_to_base64(input: &str) -> Result<String, ConversionError> {
+pub fn to_base64(input: &str) -> Result<String, ConversionError> {
     if input.len() % 2 != 0 {
         return Err(ConversionError::MalformedHex(input.to_string()));
     }
 
-    let bytes = hex_to_bytes(input)?;
+    let bytes = decode(input)?;
     let base64_bytes: Vec<u8> = bytes
         .chunks(3)
         .flat_map(|chunk| {
@@ -84,74 +92,100 @@ pub fn hex_to_base64(input: &str) -> Result<String, ConversionError> {
 mod tests {
     use super::*;
     #[test]
-    fn hex_str_conversion_error() {
+    fn str_conversion_error() {
         let odd_hex = "FFA";
-        let err = hex_to_base64(odd_hex);
+        let err = to_base64(odd_hex);
         assert!(err.is_err());
     }
     #[test]
-    fn hex_str_to_bytes_simple() {
+    fn str_to_bytes_simple() {
         let hex = "FFA0";
-        let bytes = hex_to_bytes(hex).expect("good parse");
+        let bytes = decode(hex).expect("good parse");
         assert_eq!(bytes[0], 255u8);
         assert_eq!(bytes[1], 160u8);
     }
     #[test]
-    fn hex_str_to_bytes_lowercase() {
+    fn str_to_bytes_lowercase() {
         let hex = "deadbeef";
-        let bytes = hex_to_bytes(hex).expect("Failed to parse lowercase hex");
+        let bytes = decode(hex).expect("Failed to parse lowercase hex");
         assert_eq!(bytes, vec![222, 173, 190, 239]);
     }
     #[test]
-    fn hex_str_to_bytes_uppercase() {
+    fn str_to_bytes_uppercase() {
         let hex = "DEADBEEF";
-        let bytes = hex_to_bytes(hex).expect("Failed to parse lowercase hex");
+        let bytes = decode(hex).expect("Failed to parse lowercase hex");
         assert_eq!(bytes, vec![222, 173, 190, 239]);
     }
     #[test]
-    fn hex_str_to_bytes_empty() {
+    fn str_to_bytes_empty() {
         let hex = "";
-        let bytes = hex_to_bytes(hex).expect("Failed to parse lowercase hex");
+        let bytes = decode(hex).expect("Failed to parse lowercase hex");
         assert_eq!(bytes, vec![]);
     }
     #[test]
-    fn test_invalid_first_char() {
+    fn invalid_first_char() {
         let hex = "GHIJ";
-        let result = hex_to_bytes(hex);
+        let result = decode(hex);
         assert_eq!(result, Err(ConversionError::InvalidHexCharInString('G', 0)));
     }
     #[test]
-    fn test_invalid_next_char() {
+    fn invalid_next_char() {
         let hex = "FFAFOG";
-        let result = hex_to_bytes(hex);
+        let result = decode(hex);
         assert_eq!(result, Err(ConversionError::InvalidHexCharInString('O', 4)));
+    }
+
+    #[test]
+    fn empty_buff_to_hex() {
+        let buf = vec![];
+        let result = encode(&buf);
+        assert_eq!(result, "".to_string());
+    }
+    #[test]
+    fn single_max_byte_to_hex() {
+        let buf = vec![255];
+        let result = encode(&buf);
+        assert_eq!(result, "ff".to_string());
+    }
+    #[test]
+    fn single_byte_to_hex() {
+        let buf = vec![15];
+        let result = encode(&buf);
+        assert_eq!(result, "0f".to_string());
+    }
+
+    #[test]
+    fn many_bytes_to_hex() {
+        let buf = vec![15, 255, 09];
+        let result = encode(&buf);
+        assert_eq!(result, "0fff09".to_string());
     }
 
     #[test]
     fn base64_empty_string() {
         let hex = "";
-        let result = hex_to_base64(hex).expect("Failed to convert empty string");
+        let result = to_base64(hex).expect("Failed to convert empty string");
         assert_eq!(result, "");
     }
 
     #[test]
     fn base64_single_byte() {
         let hex = "FF";
-        let result = hex_to_base64(hex).expect("Failed to convert single byte string");
+        let result = to_base64(hex).expect("Failed to convert single byte string");
         assert_eq!(result, "/w==");
     }
 
     #[test]
     fn base64_two_bytes() {
         let hex = "FFFF";
-        let result = hex_to_base64(hex).expect("Failed to convert single byte string");
+        let result = to_base64(hex).expect("Failed to convert single byte string");
         assert_eq!(result, "//8=");
     }
 
     #[test]
     fn base64_three_bytes() {
         let hex = "FFFFFF";
-        let result = hex_to_base64(hex).expect("Failed to convert single byte string");
+        let result = to_base64(hex).expect("Failed to convert single byte string");
         assert_eq!(result, "////");
     }
 }
