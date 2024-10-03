@@ -1,6 +1,6 @@
+use crate::base64;
 use std::fmt::Write;
 use thiserror::Error;
-
 const BASE64_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 #[derive(Debug, Error, PartialOrd, PartialEq)]
@@ -61,31 +61,7 @@ pub fn to_base64(input: &str) -> Result<String, ConversionError> {
     }
 
     let bytes = decode(input)?;
-    let base64_bytes: Vec<u8> = bytes
-        .chunks(3)
-        .flat_map(|chunk| {
-            let mut n = u32::from(chunk[0]) << 16;
-            if chunk.len() > 1 {
-                n |= u32::from(chunk[1]) << 8;
-            }
-            if chunk.len() > 2 {
-                n |= u32::from(chunk[2]);
-            }
-
-            let mut q = [b'='; 4];
-            q[0] = BASE64_ALPHABET[(n >> 18 & 63) as usize];
-            q[1] = BASE64_ALPHABET[(n >> 12 & 63) as usize];
-            if chunk.len() > 1 {
-                q[2] = BASE64_ALPHABET[(n >> 6 & 63) as usize];
-            }
-            if chunk.len() > 2 {
-                q[3] = BASE64_ALPHABET[(n & 63) as usize];
-            }
-            q
-        })
-        .collect();
-
-    Ok(String::from_utf8(base64_bytes).unwrap())
+    Ok(base64::encode(&bytes))
 }
 
 #[cfg(test)]
@@ -159,33 +135,5 @@ mod tests {
         let buf = vec![15, 255, 09];
         let result = encode(&buf);
         assert_eq!(result, "0fff09".to_string());
-    }
-
-    #[test]
-    fn base64_empty_string() {
-        let hex = "";
-        let result = to_base64(hex).expect("Failed to convert empty string");
-        assert_eq!(result, "");
-    }
-
-    #[test]
-    fn base64_single_byte() {
-        let hex = "FF";
-        let result = to_base64(hex).expect("Failed to convert single byte string");
-        assert_eq!(result, "/w==");
-    }
-
-    #[test]
-    fn base64_two_bytes() {
-        let hex = "FFFF";
-        let result = to_base64(hex).expect("Failed to convert single byte string");
-        assert_eq!(result, "//8=");
-    }
-
-    #[test]
-    fn base64_three_bytes() {
-        let hex = "FFFFFF";
-        let result = to_base64(hex).expect("Failed to convert single byte string");
-        assert_eq!(result, "////");
     }
 }

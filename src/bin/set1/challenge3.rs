@@ -12,7 +12,8 @@ fn main() {
             Ok(msg) => {
                 let likeness = lang_detection::english_likeness(&msg);
                 if likeness > 0.95 {
-                    most_probable.push(((likeness * 1000.0) as u32, msg)); // f64 comparator sadness, proper thing to do here is to impl Ord PartialOrd Eq for (f64, text)...
+                    // f64 comparator sadness, proper thing to do here is to impl Ord PartialOrd Eq for (f64, text)...
+                    most_probable.push(((likeness * 1000.0) as u32, msg));
                 }
             }
             _ => {}

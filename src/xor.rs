@@ -13,6 +13,13 @@ pub fn xor(input: &[u8], key: &[u8]) -> Result<Vec<u8>, XorError> {
     Ok(input.iter().zip(key.iter()).map(|(i, k)| i ^ k).collect())
 }
 
+// encrypt input with repeating (if needed) key
+pub fn encrypt(input: &[u8], key: &[u8]) -> Result<Vec<u8>, XorError> {
+    let key: Vec<u8> = key.iter().cloned().cycle().take(input.len()).collect();
+    let encrypted = xor(input, &key)?;
+    Ok(encrypted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
