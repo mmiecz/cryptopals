@@ -4,7 +4,7 @@ use thiserror::Error;
 const BASE64_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 #[derive(Debug, Error)]
-enum Base64Error {
+pub enum Base64Error {
     #[error("invalid character {0}")]
     InvalidCharacter(char),
 }

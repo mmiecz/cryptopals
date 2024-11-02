@@ -3,7 +3,7 @@ pub mod hamming {
     use thiserror::Error;
 
     #[derive(Error, Debug)]
-    enum HammingError {
+    pub enum HammingError {
         #[error("length mismatch {0}, {1}")]
         InvalidLength(usize, usize),
     }

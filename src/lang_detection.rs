@@ -44,6 +44,11 @@ pub fn english_likeness(text: &str) -> f64 {
         count += 1;
     }
 
+    // none of the letters in the text is alphabetic, can't be english text
+    if count == 0 {
+        return 0.0;
+    }
+
     // find how well found freq matches english letter freq in text
     ENGLISH_FREQ
         .iter()
@@ -80,5 +85,13 @@ mod tests {
         let partial = english_likeness(partial_english);
 
         assert!(proper > partial);
+    }
+
+    #[test]
+    fn none_of_the_letters_is_alphabetic() {
+        let b = &[0u8, 0, 0, 0];
+        let s = String::from_utf8_lossy(b);
+        let score = english_likeness(&s);
+        assert_eq!(score, 0.0);
     }
 }
